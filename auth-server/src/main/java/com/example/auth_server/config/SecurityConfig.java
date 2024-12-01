@@ -46,10 +46,15 @@ public class SecurityConfig {
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http)
             throws Exception {
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-        http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-                .oidc(Customizer.withDefaults());	// Enable OpenID Connect 1.0
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+                OAuth2AuthorizationServerConfigurer.authorizationServer();
+
         http
+                .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+                .with(authorizationServerConfigurer, (authorizationServer) ->
+                        authorizationServer
+                                .oidc(Customizer.withDefaults())	// Enable OpenID Connect 1.0
+                )
                 // Redirect to the login page when not authenticated from the
                 // authorization endpoint
                 .exceptionHandling((exceptions) -> exceptions
@@ -57,11 +62,7 @@ public class SecurityConfig {
                                 new LoginUrlAuthenticationEntryPoint("/login"),
                                 new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
                         )
-                )
-                // Accept access tokens for User Info and/or Client Registration
-                .oauth2ResourceServer((resourceServer) -> resourceServer
-                        .jwt(Customizer.withDefaults()));
-
+                );
         return http.build();
     }
 
@@ -81,36 +82,29 @@ public class SecurityConfig {
     }
 
     @Bean
-    UserDetailsService inMemoryUserDetailsManager() {
-        return new InMemoryUserDetailsManager(
-                User.withUsername("nsa2user")
-                        .password("{noop}password")
-                        .roles("NSA2_USER")
-                        .build(),
-                User.withUsername("nsa2admin")
-                        .password("{noop}password")
-                        .roles("NSA2_ADMIN", "NSA2_USER")
-                        .build()
+    public UserDetailsService userDetailsService() {
+        UserDetails userDetails = User.withDefaultPasswordEncoder()
+                .username("user")
+                .password("password")
+                .roles("USER")
+                .build();
 
-        );
+        return new InMemoryUserDetailsManager(userDetails);
     }
 
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
         RegisteredClient oidcClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("nsa2")
+                .clientId("oidc-client")
                 .clientSecret("{noop}secret")
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("http://127.0.0.1:8080/login/oauth2/code/nsa2")
-                .postLogoutRedirectUri("http://127.0.0.1:8080/logged-out")
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .redirectUri("http://127.0.0.1:8080/login/oauth2/code/oidc-client")
+                .postLogoutRedirectUri("http://127.0.0.1:8080/")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
-                .scope("nsa2.user.all")
-                .scope("nsa2.user.read")
-                .scope("nsa2.user.write")
-                .scope("nsa2.admin")
                 .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build())
                 .build();
 
@@ -152,5 +146,4 @@ public class SecurityConfig {
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
-
 }
