@@ -11,8 +11,7 @@ spring:
             client-secret: secret
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_basic
-#            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            redirect-uri: "http://127.0.0.1:8080/login/oauth2/code/oidc-client"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: openid,profile,user.read
         provider:
           spring:
